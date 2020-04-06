@@ -69,10 +69,6 @@ $(NEW_EXTENSION_ARTIFACT): $(SOURCES_DATA)
 .PHONY: all
 all: $(DATA)
 
-.PHONY: $(EXTENSION).control
-$(EXTENSION).control:
-	$(SED) $(REPLACEMENTS) $(EXTENSION).control.in > $(EXTENSION).control
-
 .PHONY: release
 release: $(SOURCES_DATA)
 	test -n "$(NEW_VERSION)"  # $$NEW_VERSION VARIABLE MISSING. Eg. make release NEW_VERSION=0.x.0
@@ -92,9 +88,9 @@ devclean:
 	rm -f $(NEW_EXTENSION_ARTIFACT)
 	rm -f $(GENERATED_SQL_FILES)
 
-# If needed remove PARALLEL tags from the release files
-.PHONY: release_replace_variables
-release_replace_variables:
+# Replace variables (and PARALLEL tags if necessary) and deploy files
+.PHONY: replace_variables_and_deploy
+replace_variables_and_deploy: $(NEW_EXTENSION_ARTIFACT)
 	for n in $(wildcard old_versions/*.sql *.sql); do \
 		$(eval TMPFILE := $(shell mktemp /tmp/XXXXXXXXXX)) \
 		if [ "$(PG_PARALLEL)" -eq "0" ]; then \
@@ -102,14 +98,17 @@ release_replace_variables:
 			mv $(TMPFILE) $$n; \
 		fi; \
 		$(SED) $(REPLACEMENTS) $$n > $(TMPFILE); \
-		mv $(TMPFILE) $$n; \
+		mv $(TMPFILE) '$(DESTDIR)$(datadir)/extension/'$$(basename $$n); \
 	done
+
+.PHONY: $(EXTENSION).control
+$(EXTENSION).control:
+	$(SED) $(REPLACEMENTS) $(EXTENSION).control.in > $(EXTENSION).control
 
 # Install the current release into the PostgreSQL extensions directory
 .PHONY: deploy
-deploy: release_replace_variables
+deploy: replace_variables_and_deploy $(EXTENSION).control
 	$(INSTALL_DATA) $(EXTENSION).control '$(DESTDIR)$(datadir)/extension/'
-	$(INSTALL_DATA) old_versions/*.sql *.sql '$(DESTDIR)$(datadir)/extension/'
 
 .PHONY: install
 install: deploy
