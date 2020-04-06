@@ -1,16 +1,16 @@
 -- Only show warning or error messages in the tests output
-\set ECHO none
-\set QUIET on
+-- \set ECHO none
+-- \set QUIET on
 SET client_min_messages TO WARNING;
 
 -- Install the extension
 CREATE EXTENSION cdb_dataservices_server CASCADE;
+CREATE EXTENSION cartodb CASCADE;
 
-\unset ECHO
-\unset QUIET
+-- \unset ECHO
+-- \unset QUIET
 
 -- Mock the redis server connection to point to this very test db
-CREATE EXTENSION cartodb;
 SELECT cartodb.cdb_conf_setconf('redis_metrics_config', '{"redis_host": "localhost", "redis_port": 6379, "timeout": 0.1, "redis_db": 5}');
 SELECT cartodb.cdb_conf_setconf('redis_metadata_config', '{"redis_host": "localhost", "redis_port": 6379, "timeout": 0.1, "redis_db": 5}');
 SELECT cartodb.cdb_conf_setconf('heremaps_conf', '{"geocoder": {"app_id": "dummy_id", "app_code": "dummy_code", "geocoder_cost_per_hit": 1}, "isolines": {"app_id": "dummy_id", "app_code": "dummy_code"}}');
