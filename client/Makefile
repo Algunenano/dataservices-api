@@ -64,15 +64,7 @@ SOURCES_DATA = $(wildcard $(SOURCES_DATA_DIR)/*.sql) $(GENERATED_SQL_FILES)
 
 $(NEW_EXTENSION_ARTIFACT): $(SOURCES_DATA)
 	rm -f $@
-	cat $(SOURCES_DATA_DIR)/*.sql | \
-		$(SED) -e $(REPLACEMENTS) >> $@
-ifeq ($(PG_PARALLEL), 0)
-# Remove PARALLEL in aggregates and functions
-	$(eval TMPFILE := $(shell mktemp /tmp/$(basename $0).XXXXXXXX))
-	$(SED) -e 's/PARALLEL \= [A-Z]*,/''/g' \
-		-e 's/PARALLEL [A-Z]*/''/g' $@ > $(TMPFILE)
-	mv $(TMPFILE) $@
-endif
+	cat $(SOURCES_DATA_DIR)/*.sql >> $@
 
 .PHONY: all
 all: $(DATA)
@@ -82,10 +74,9 @@ $(EXTENSION).control:
 	$(SED) $(REPLACEMENTS) $(EXTENSION).control.in > $(EXTENSION).control
 
 .PHONY: release
-release: $(EXTENSION).control $(SOURCES_DATA)
+release: $(SOURCES_DATA)
 	test -n "$(NEW_VERSION)"  # $$NEW_VERSION VARIABLE MISSING. Eg. make release NEW_VERSION=0.x.0
 	git mv *.sql old_versions
-	git add $(EXTENSION).control
 	cat $(SOURCES_DATA_DIR)/*.sql > $(EXTENSION)--$(NEW_VERSION).sql
 	git add $(EXTENSION)--$(NEW_VERSION).sql
 	$(ERB) version=$(NEW_VERSION) upgrade_downgrade_template.erb > $(EXTENSION)--$(EXTVERSION)--$(NEW_VERSION).sql
@@ -103,14 +94,14 @@ devclean:
 
 # If needed remove PARALLEL tags from the release files
 .PHONY: release_replace_variables
-release_replace_variables: $(EXTENSION).control
+release_replace_variables:
 	for n in $(wildcard old_versions/*.sql *.sql); do \
 		$(eval TMPFILE := $(shell mktemp /tmp/XXXXXXXXXX)) \
 		if [ "$(PG_PARALLEL)" -eq "0" ]; then \
 			$(SED) -e 's/PARALLEL \= [A-Z]*,/''/g' -e 's/PARALLEL [A-Z]*/''/g' $$n > $(TMPFILE); \
 			mv $(TMPFILE) $$n; \
 		fi; \
-		$(SED) -e 's/@@plpythonu@@/$(PLPYTHONU)/g' $$n > $(TMPFILE); \
+		$(SED) $(REPLACEMENTS) $$n > $(TMPFILE); \
 		mv $(TMPFILE) $$n; \
 	done
 
